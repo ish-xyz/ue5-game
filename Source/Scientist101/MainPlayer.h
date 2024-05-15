@@ -7,7 +7,7 @@
 #include "InputActionValue.h"
 
 // IMPORTANT!!! Maintain as last include
-#include "Protagonist.generated.h"
+#include "MainPlayer.generated.h"
 
 
 //Forward declarations
@@ -18,14 +18,14 @@ class UAnimMontage;
 class UStaticMeshComponent;
 
 UCLASS()
-class SCIENTIST101_API AProtagonist : public ACharacter
+class SCIENTIST101_API AMainPlayer : public ACharacter
 {
 	GENERATED_BODY()
 
 public:
 
 	// Sets default values for this character's properties
-	AProtagonist();
+	AMainPlayer();
 
 	UFUNCTION()
 	virtual void HandleOnMontageNotifyBegin(FName notifyName, const FBranchingPointNotifyPayload& branchingPayload);

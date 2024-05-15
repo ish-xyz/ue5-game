@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Protagonist.h"
+#include "MainPlayer.h"
 #include "Engine.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
@@ -12,7 +12,7 @@
 #include "Components/StaticMeshComponent.h"
 
 // Sets default values
-AProtagonist::AProtagonist()
+AMainPlayer::AMainPlayer()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -45,7 +45,7 @@ AProtagonist::AProtagonist()
 }
 
 // Called when the game starts or when spawned
-void AProtagonist::BeginPlay()
+void AMainPlayer::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -62,13 +62,13 @@ void AProtagonist::BeginPlay()
 
 	UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
 	if (pAnimInst != nullptr) {
-		pAnimInst->OnPlayMontageNotifyBegin.AddDynamic(this, &AProtagonist::HandleOnMontageNotifyBegin);
+		pAnimInst->OnPlayMontageNotifyBegin.AddDynamic(this, &AMainPlayer::HandleOnMontageNotifyBegin);
 	}
 
 }
 
 // Called every frame
-void AProtagonist::Tick(float DeltaTime)
+void AMainPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
@@ -78,24 +78,24 @@ void AProtagonist::Tick(float DeltaTime)
 }
 
 // Called to bind functionality to input
-void AProtagonist::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AMainPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AProtagonist::MoveAround);
-		EnhancedInputComponent->BindAction(CameraAction, ETriggerEvent::Triggered, this, &AProtagonist::LookAround);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AProtagonist::PStartJump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AProtagonist::PStopJump);
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AProtagonist::StartSprint);
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AProtagonist::StopSprint);
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AProtagonist::MeleeLightAttack);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMainPlayer::MoveAround);
+		EnhancedInputComponent->BindAction(CameraAction, ETriggerEvent::Triggered, this, &AMainPlayer::LookAround);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AMainPlayer::PStartJump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AMainPlayer::PStopJump);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AMainPlayer::StartSprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AMainPlayer::StopSprint);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMainPlayer::MeleeLightAttack);
 	}
 }
 
 // Locomotion implmentation
 
-void AProtagonist::MoveAround(const FInputActionValue& Value)
+void AMainPlayer::MoveAround(const FInputActionValue& Value)
 {
 
 	if (Controller == nullptr) {
@@ -121,7 +121,7 @@ void AProtagonist::MoveAround(const FInputActionValue& Value)
 
 
 
-void AProtagonist::LookAround(const FInputActionValue& Value)
+void AMainPlayer::LookAround(const FInputActionValue& Value)
 {
 	if (Controller == nullptr) {
 		return;
@@ -137,7 +137,7 @@ void AProtagonist::LookAround(const FInputActionValue& Value)
 
 }
 
-void AProtagonist::PStartJump(const FInputActionValue& Value)
+void AMainPlayer::PStartJump(const FInputActionValue& Value)
 {
 	if (isAttacking() || isDead()) {
 		return;
@@ -149,12 +149,12 @@ void AProtagonist::PStartJump(const FInputActionValue& Value)
 	Jump();
 }
 
-void AProtagonist::PStopJump(const FInputActionValue& Value)
+void AMainPlayer::PStopJump(const FInputActionValue& Value)
 {
 	StopJumping();
 }
 
-void AProtagonist::StartSprint(const FInputActionValue& Value)
+void AMainPlayer::StartSprint(const FInputActionValue& Value)
 {
 	// exit conditions
 	if (Controller == nullptr) {
@@ -183,7 +183,7 @@ void AProtagonist::StartSprint(const FInputActionValue& Value)
 	staminaManager(0);
 }
 
-void AProtagonist::StopSprint(const FInputActionValue& Value)
+void AMainPlayer::StopSprint(const FInputActionValue& Value)
 {
 	if (Controller == nullptr) {
 		return;
@@ -194,7 +194,7 @@ void AProtagonist::StopSprint(const FInputActionValue& Value)
 	staminaManager(1);
 }
 
-void AProtagonist::staminaManager(int action) {
+void AMainPlayer::staminaManager(int action) {
 
 	// clear existing timer
 	GetWorldTimerManager().ClearTimer(StaminaTimerHandle);
@@ -208,7 +208,7 @@ void AProtagonist::staminaManager(int action) {
 		GetWorldTimerManager().SetTimer(
 			StaminaTimerHandle, 
 			this, 
-			&AProtagonist::increaseStamina, 
+			&AMainPlayer::increaseStamina, 
 			1.0f, 
 			true, 
 			1.0f
@@ -219,7 +219,7 @@ void AProtagonist::staminaManager(int action) {
 		GetWorldTimerManager().SetTimer(
 			StaminaTimerHandle,
 			this,
-			&AProtagonist::reduceStamina,
+			&AMainPlayer::reduceStamina,
 			0.5f,
 			true,
 			0.0f
@@ -227,7 +227,7 @@ void AProtagonist::staminaManager(int action) {
 	}
 }
 
-void AProtagonist::reduceStamina()
+void AMainPlayer::reduceStamina()
 {
 
 	if (currStamina >= 20.0f) {
@@ -241,7 +241,7 @@ void AProtagonist::reduceStamina()
 	}
 }
 
-void AProtagonist::increaseStamina()
+void AMainPlayer::increaseStamina()
 {
 	if (isDead() || currStamina >= maxStamina) {
 		staminaManager(-1);
@@ -251,12 +251,12 @@ void AProtagonist::increaseStamina()
 	currStamina += 2.0f;
 }
 
-int AProtagonist::GetJumpCount()
+int AMainPlayer::GetJumpCount()
 {
 	return JumpCurrentCount;
 }
 
-float AProtagonist::GetStamina()
+float AMainPlayer::GetStamina()
 {
 	return currStamina;
 }
@@ -266,7 +266,7 @@ float AProtagonist::GetStamina()
 
 
 // COMBAT SYSTEM
-AProtagonist::DamageData* AProtagonist::newDamageData(float value)
+AMainPlayer::DamageData* AMainPlayer::newDamageData(float value)
 {
 
 	DamageData* dmg = {};
@@ -276,7 +276,7 @@ AProtagonist::DamageData* AProtagonist::newDamageData(float value)
 	return dmg;
 }
 
-bool AProtagonist::isAttacking()
+bool AMainPlayer::isAttacking()
 {
 	UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
 	if (pAnimInst != nullptr && MeleeLightAttackAnim != nullptr) {
@@ -286,12 +286,12 @@ bool AProtagonist::isAttacking()
 	return false;
 }
 
-bool AProtagonist::isDead()
+bool AMainPlayer::isDead()
 {
 	return currHealth <= 0.0f;
 }
 
-void AProtagonist::MeleeLightAttack()
+void AMainPlayer::MeleeLightAttack()
 {
 	if (isDead()) {
 		return;
@@ -308,7 +308,7 @@ void AProtagonist::MeleeLightAttack()
 	}
 }
 
-void AProtagonist::HandleOnMontageNotifyBegin(FName notifyName, const FBranchingPointNotifyPayload& branchingPayload)
+void AMainPlayer::HandleOnMontageNotifyBegin(FName notifyName, const FBranchingPointNotifyPayload& branchingPayload)
 {
 	comboAttackIndex--;
 
@@ -322,7 +322,7 @@ void AProtagonist::HandleOnMontageNotifyBegin(FName notifyName, const FBranching
 }
 
 
-void AProtagonist::MeeleWeaponCollisionDetector() {
+void AMainPlayer::MeeleWeaponCollisionDetector() {
 
 	if (MeleeWeaponMesh == nullptr) {
 		return;
@@ -340,38 +340,37 @@ void AProtagonist::MeeleWeaponCollisionDetector() {
 
 	// check collision
 	if (hitResult.bBlockingHit) {
-		AActor* enemy = hitResult.GetActor();
-
-		if (AProtagonist* enemyProtagonist = CastChecked<AProtagonist>(enemy)) {
+		AActor* enemyActor = hitResult.GetActor();
+		if (AMainPlayer* enemy = (AMainPlayer*)&enemyActor) {
 			DamageData* dmg = newDamageData(0.0f);
-			enemyProtagonist->TakeDamage(dmg);
+			enemy->TakeDamage(dmg);
 		}
 		// try to cast to generalised class of destructubile items
 		// call canDestroy()?
 		// call ReceiveHit(dmg) // dmg might be ignored based on the type of enemy
 		// 
-		enemy->Destroy();
+		enemyActor->Destroy();
 	}
 
 }
 
-float AProtagonist::GetHealth()
+float AMainPlayer::GetHealth()
 {
 	return currHealth;
 }
 
-float AProtagonist::GetMaxHealth()
+float AMainPlayer::GetMaxHealth()
 {
 	return maxHealth;
 }
 
-void AProtagonist::TakeDamage(struct DamageData* dmg)
+void AMainPlayer::TakeDamage(struct DamageData* dmg)
 {
 	currHealth -= dmg->value;
 	return;
 }
 
-float AProtagonist::Heal(float healAmount)
+float AMainPlayer::Heal(float healAmount)
 {
 	if (currHealth + healAmount > maxHealth) {
 		currHealth = maxHealth;
