@@ -14,7 +14,7 @@
 // Sets default values
 AMainPlayer::AMainPlayer()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	// Character Stats
@@ -30,7 +30,7 @@ AMainPlayer::AMainPlayer()
 	rangeDamage = 10.0f;
 	critDamageMultiplier = 1.3f;
 	critChance = 0.5f;
-	
+
 	// Health
 	maxHealth = 200.0f;
 	currHealth = 200.0f;
@@ -206,11 +206,11 @@ void AMainPlayer::staminaManager(int action) {
 	if (action == 1) {
 		// recharging stamina
 		GetWorldTimerManager().SetTimer(
-			StaminaTimerHandle, 
-			this, 
-			&AMainPlayer::increaseStamina, 
-			1.0f, 
-			true, 
+			StaminaTimerHandle,
+			this,
+			&AMainPlayer::increaseStamina,
+			1.0f,
+			true,
 			1.0f
 		);
 	}
@@ -340,16 +340,23 @@ void AMainPlayer::MeeleWeaponCollisionDetector() {
 
 	// check collision
 	if (hitResult.bBlockingHit) {
-		AActor* enemyActor = hitResult.GetActor();
-		if (AMainPlayer* enemy = (AMainPlayer*)&enemyActor) {
-			DamageData* dmg = newDamageData(0.0f);
-			enemy->TakeDamage(dmg);
+		AActor* enemyact = hitResult.GetActor();
+		// change casting to generalised component/class
+		if (AMainPlayer* enemy = Cast<AMainPlayer>(enemyact)) {
+			if (enemy != nullptr) {
+				if (GEngine) {
+					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("casting succeded!!")));
+				}
+				//DamageData* dmg = newDamageData(20.0f);
+				//enemy->ReceiveDamage(dmg);
+			}
+			else {
+				if (GEngine) {
+					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::Printf(TEXT("casting failed!!")));
+				}
+			}
 		}
-		// try to cast to generalised class of destructubile items
-		// call canDestroy()?
-		// call ReceiveHit(dmg) // dmg might be ignored based on the type of enemy
-		// 
-		enemyActor->Destroy();
+		enemyact->Destroy(); // TODO: remove, just for testing
 	}
 
 }
@@ -364,7 +371,7 @@ float AMainPlayer::GetMaxHealth()
 	return maxHealth;
 }
 
-void AMainPlayer::TakeDamage(struct DamageData* dmg)
+void AMainPlayer::ReceiveDamage(struct DamageData* dmg)
 {
 	currHealth -= dmg->value;
 	return;
@@ -374,7 +381,8 @@ float AMainPlayer::Heal(float healAmount)
 {
 	if (currHealth + healAmount > maxHealth) {
 		currHealth = maxHealth;
-	} else {
+	}
+	else {
 		currHealth += healAmount;
 	}
 	return currHealth;

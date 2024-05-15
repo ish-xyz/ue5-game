@@ -94,7 +94,7 @@ protected:
 	float GetMaxHealth();
 
 	// Other Methods
-	
+
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
@@ -106,10 +106,10 @@ protected:
 	void PStartJump(const FInputActionValue& Value);
 	void PStopJump(const FInputActionValue& Value);
 	void MeleeLightAttack();
-	
+
 	// Others
 	float Heal(float health);
-	void TakeDamage(DamageData* dmgInfo);
+	void ReceiveDamage(DamageData* dmgInfo);
 	void MeeleWeaponCollisionDetector();
 	DamageData* newDamageData(float value);
 
