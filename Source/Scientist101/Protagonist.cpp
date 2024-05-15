@@ -16,14 +16,32 @@ AProtagonist::AProtagonist()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	// Character Stats
+
+	// Stamina and speed
 	sprintSpeed = 1000.0f;
 	normalSpeed = 600.0f;
-	stamina = 100.0f;
 	maxStamina = 100.0f;
+	currStamina = 100.0f;
 
+	// Combat
+	meleeDamage = 10.0f;
+	rangeDamage = 10.0f;
+	critDamageMultiplier = 1.3f;
+	critChance = 0.5f;
+	
+	// Health
+	maxHealth = 200.0f;
+	currHealth = 200.0f;
+	healingPerSecond = 10.0f;
+
+
+	// Melee Weapon
 	MeleeWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Melee Weapon"));
 	MeleeWeaponMesh->SetupAttachment(GetMesh(), FName("socket_hand_r"));
 
+	// Ranged Weapon?
 }
 
 // Called when the game starts or when spawned
@@ -71,7 +89,7 @@ void AProtagonist::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AProtagonist::PStopJump);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AProtagonist::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AProtagonist::StopSprint);
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AProtagonist::LightSwordAttack);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AProtagonist::MeleeLightAttack);
 	}
 }
 
@@ -84,7 +102,7 @@ void AProtagonist::MoveAround(const FInputActionValue& Value)
 		return;
 	}
 
-	if (isAttacking()) {
+	if (isAttacking() || isDead()) {
 		return;
 	}
 
@@ -121,7 +139,7 @@ void AProtagonist::LookAround(const FInputActionValue& Value)
 
 void AProtagonist::PStartJump(const FInputActionValue& Value)
 {
-	if (isAttacking()) {
+	if (isAttacking() || isDead()) {
 		return;
 	}
 	if (GetJumpCount() > 1) {
@@ -133,9 +151,6 @@ void AProtagonist::PStartJump(const FInputActionValue& Value)
 
 void AProtagonist::PStopJump(const FInputActionValue& Value)
 {
-	if (isAttacking()) {
-		return;
-	}
 	StopJumping();
 }
 
@@ -146,14 +161,14 @@ void AProtagonist::StartSprint(const FInputActionValue& Value)
 		return;
 	}
 
-	if (isAttacking()) {
+	if (isAttacking() || isDead()) {
 		return;
 	}
 
 	float minStamina = 25.0f; // minimum stamina required to sprint
 	float staminaExhaustionTimeout = 0.5f; // timeout between every tick of stamina decrease
 
-	if (stamina < minStamina) {
+	if (currStamina < minStamina) {
 		// TODO: Notify player somehow
 		return;
 	}
@@ -215,23 +230,25 @@ void AProtagonist::staminaManager(int action) {
 void AProtagonist::reduceStamina()
 {
 
-	if (stamina >= 20.0f) {
-		stamina -= 6.0f;
-
+	if (currStamina >= 20.0f) {
+		currStamina -= 6.0f;
 	}
 	else {
+		// Stamina has finished:
 		// Add side effects here
+		// TODO: implement a subscriber kind of model (where side effects can subscribe to this event).
 		StopSprint(NULL);
 	}
 }
 
 void AProtagonist::increaseStamina()
 {
-	if (stamina < maxStamina) {
-		stamina += 2.0f;
-	} else {
-		GetWorldTimerManager().ClearTimer(StaminaTimerHandle);
+	if (isDead() || currStamina >= maxStamina) {
+		staminaManager(-1);
+		return;
 	}
+
+	currStamina += 2.0f;
 }
 
 int AProtagonist::GetJumpCount()
@@ -241,34 +258,53 @@ int AProtagonist::GetJumpCount()
 
 float AProtagonist::GetStamina()
 {
-	return stamina;
+	return currStamina;
 }
 
 // TODO:
-// Dodging system with Niagara
+// Dodging system with Niagara (quick/instant trail effect)
 
 
 // COMBAT SYSTEM
+AProtagonist::DamageData* AProtagonist::newDamageData(float value)
+{
+
+	DamageData* dmg = {};
+	dmg->value = value;
+	dmg->effectDuration = 0.0f;
+
+	return dmg;
+}
+
 bool AProtagonist::isAttacking()
 {
 	UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
-	if (pAnimInst != nullptr && SwordAttack1Anim != nullptr) {
-		return pAnimInst->Montage_IsPlaying(SwordAttack1Anim);
+	if (pAnimInst != nullptr && MeleeLightAttackAnim != nullptr) {
+		return pAnimInst->Montage_IsPlaying(MeleeLightAttackAnim);
 	}
 	// return false by default
 	return false;
 }
 
-void AProtagonist::LightSwordAttack()
+bool AProtagonist::isDead()
 {
+	return currHealth <= 0.0f;
+}
+
+void AProtagonist::MeleeLightAttack()
+{
+	if (isDead()) {
+		return;
+	}
+
 	if (isAttacking()) {
 		comboAttackIndex = 1;
 		return;
 	}
 
 	UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
-	if (pAnimInst != nullptr && SwordAttack1Anim != nullptr) {
-		pAnimInst->Montage_Play(SwordAttack1Anim);
+	if (pAnimInst != nullptr && MeleeLightAttackAnim != nullptr) {
+		pAnimInst->Montage_Play(MeleeLightAttackAnim);
 	}
 }
 
@@ -276,10 +312,10 @@ void AProtagonist::HandleOnMontageNotifyBegin(FName notifyName, const FBranching
 {
 	comboAttackIndex--;
 
-	if (comboAttackIndex < 0) {
+	if (comboAttackIndex < 0 || isDead()) {
 		UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
-		if (pAnimInst != nullptr && SwordAttack1Anim != nullptr) {
-			pAnimInst->Montage_Stop(0.4f, SwordAttack1Anim);
+		if (pAnimInst != nullptr && MeleeLightAttackAnim != nullptr) {
+			pAnimInst->Montage_Stop(0.4f, MeleeLightAttackAnim);
 		}
 	}
 	return;
@@ -305,6 +341,11 @@ void AProtagonist::MeeleWeaponCollisionDetector() {
 	// check collision
 	if (hitResult.bBlockingHit) {
 		AActor* enemy = hitResult.GetActor();
+
+		if (AProtagonist* enemyProtagonist = CastChecked<AProtagonist>(enemy)) {
+			DamageData* dmg = newDamageData(0.0f);
+			enemyProtagonist->TakeDamage(dmg);
+		}
 		// try to cast to generalised class of destructubile items
 		// call canDestroy()?
 		// call ReceiveHit(dmg) // dmg might be ignored based on the type of enemy
@@ -312,6 +353,32 @@ void AProtagonist::MeeleWeaponCollisionDetector() {
 		enemy->Destroy();
 	}
 
+}
+
+float AProtagonist::GetHealth()
+{
+	return currHealth;
+}
+
+float AProtagonist::GetMaxHealth()
+{
+	return maxHealth;
+}
+
+void AProtagonist::TakeDamage(struct DamageData* dmg)
+{
+	currHealth -= dmg->value;
+	return;
+}
+
+float AProtagonist::Heal(float healAmount)
+{
+	if (currHealth + healAmount > maxHealth) {
+		currHealth = maxHealth;
+	} else {
+		currHealth += healAmount;
+	}
+	return currHealth;
 }
 
 

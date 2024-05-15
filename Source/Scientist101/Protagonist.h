@@ -37,10 +37,25 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
 
-	// INPUT DEFINITIONS
+	int comboAttackIndex = 0;
+	enum effect {
+		none = -1, // fallback reaction
+		hit = 0,
+		stun = 1,
+		knock = 2,
+		bleeding = 3,
+	};
+
+	struct DamageData {
+		float value;
+		effect effect;
+		bool blockable;
+		bool interruptible;
+		float effectDuration;
+	};
+
+	// UPROPS
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* MainMappingContext;
 
@@ -59,50 +74,68 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AttackAction;
 
-	// LOCOMOTION DEFINITIONS
-	void MoveAround(const FInputActionValue& Value);
+	UPROPERTY(VisibleAnywhere, Category = "Combat")
+	UStaticMeshComponent* MeleeWeaponMesh;
 
-	void LookAround(const FInputActionValue& Value);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	UAnimMontage* MeleeLightAttackAnim;
 
-	void StartSprint(const FInputActionValue& Value);
-
-	void StopSprint(const FInputActionValue& Value);
-
+	// UFUNCTIONS
 	UFUNCTION(BlueprintCallable, Category = "Locomotion")
 	int GetJumpCount();
 
 	UFUNCTION(BlueprintCallable, Category = "Stamina")
 	float GetStamina();
 
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	float GetHealth();
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	float GetMaxHealth();
+
+	// Other Methods
+	
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+	// Bound to enhanced Inputs
+	void MoveAround(const FInputActionValue& Value);
+	void LookAround(const FInputActionValue& Value);
+	void StartSprint(const FInputActionValue& Value);
+	void StopSprint(const FInputActionValue& Value);
 	void PStartJump(const FInputActionValue& Value);
-
 	void PStopJump(const FInputActionValue& Value);
-
-	// COMBAT DEFINITIONS
-	UPROPERTY(VisibleAnywhere, Category = "Combat")
-	UStaticMeshComponent* MeleeWeaponMesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	UAnimMontage* SwordAttack1Anim;
-
-	void LightSwordAttack();
+	void MeleeLightAttack();
+	
+	// Others
+	float Heal(float health);
+	void TakeDamage(DamageData* dmgInfo);
 	void MeeleWeaponCollisionDetector();
-
-	int comboAttackIndex = 0;
+	DamageData* newDamageData(float value);
 
 private:
 
-	FTimerHandle StaminaTimerHandle;
-	FTimerHandle SwordCombatTH;
-
-	float stamina;
+	// Player stats
+	float currStamina;
 	float maxStamina;
 	float sprintSpeed;
 	float normalSpeed;
+	float meleeDamage;
+	float rangeDamage;
+	float critDamageMultiplier;
+	float critChance;
+	float maxHealth;
+	float currHealth;
+	float healingPerSecond;
 
+	// Timers
+	FTimerHandle StaminaTimerHandle;
+	FTimerHandle SwordCombatTH;
+
+	// Private Methods
 	void reduceStamina();
 	void increaseStamina();
 	void staminaManager(int);
-
 	bool isAttacking();
+	bool isDead();
 };
