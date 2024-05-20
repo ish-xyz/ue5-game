@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "Damageable.h"
 
 // IMPORTANT!!! Maintain as last include
 #include "MainPlayer.generated.h"
@@ -16,9 +17,10 @@ class UInputAction;
 class USkeletalMeshComponent;
 class UAnimMontage;
 class UStaticMeshComponent;
+class AProjectileBase;
 
 UCLASS()
-class SCIENTIST101_API AMainPlayer : public ACharacter
+class SCIENTIST101_API AMainPlayer : public ACharacter, public IDamageable
 {
 	GENERATED_BODY()
 
@@ -38,22 +40,20 @@ public:
 
 protected:
 
-	int comboAttackIndex = 0;
-	enum effect {
-		none = -1, // fallback reaction
-		hit = 0,
-		stun = 1,
-		knock = 2,
-		bleeding = 3,
-	};
-
-	struct DamageData {
-		float value;
-		effect effect;
-		bool blockable;
-		bool interruptible;
-		float effectDuration;
-	};
+	float currStamina;
+	float maxStamina;
+	float sprintSpeed;
+	float runSpeed;
+	float attackSpeed;
+	float meleeDamage;
+	float rangeDamage;
+	float critDamageMultiplier;
+	float critChance;
+	float maxHealth;
+	float currHealth;
+	float healsPerSecond;
+	bool  invincible;
+	int   attackComboTracker;
 
 	// UPROPS
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -74,11 +74,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AttackAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* RangedAttackAction;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TSubclassOf<AProjectileBase> ProjectileActor;
+
 	UPROPERTY(VisibleAnywhere, Category = "Combat")
 	UStaticMeshComponent* MeleeWeaponMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	UAnimMontage* MeleeLightAttackAnim;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Combat")
+	UAnimMontage* OnGoingAnimation;
 
 	// UFUNCTIONS
 	UFUNCTION(BlueprintCallable, Category = "Locomotion")
@@ -88,10 +97,10 @@ protected:
 	float GetStamina();
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
-	float GetHealth();
+	virtual float GetHealth() override;
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
-	float GetMaxHealth();
+	virtual float GetMaxHealth() override;
 
 	// Other Methods
 
@@ -108,27 +117,14 @@ protected:
 	void MeleeLightAttack();
 
 	// Others
-	float Heal(float health);
-	void ReceiveDamage(DamageData* dmgInfo);
+	virtual float Heal(float health) override;
+	virtual bool  ReceiveDamage(Damage dmg) override;
 	void MeeleWeaponCollisionDetector();
-	DamageData* newDamageData(float value);
 
 private:
 
-	// Player stats
-	float currStamina;
-	float maxStamina;
-	float sprintSpeed;
-	float normalSpeed;
-	float meleeDamage;
-	float rangeDamage;
-	float critDamageMultiplier;
-	float critChance;
-	float maxHealth;
-	float currHealth;
-	float healingPerSecond;
-
 	// Timers
+	IDamageable::Damage damageInfo = {};
 	FTimerHandle StaminaTimerHandle;
 	FTimerHandle SwordCombatTH;
 
@@ -138,4 +134,7 @@ private:
 	void staminaManager(int);
 	bool isAttacking();
 	bool isDead();
+	void interruptAction();
+	bool isInvincible();
+	bool isBlocking();
 };

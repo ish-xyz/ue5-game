@@ -10,6 +10,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Components/ProgressBar.h"
 #include "Components/StaticMeshComponent.h"
+#include "ProjectileBase.h"
 
 // Sets default values
 AMainPlayer::AMainPlayer()
@@ -17,25 +18,22 @@ AMainPlayer::AMainPlayer()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Character Stats
+	// Misc
+	attackComboTracker = 0;
 
-	// Stamina and speed
+	// Character Stats
 	sprintSpeed = 1000.0f;
-	normalSpeed = 600.0f;
+	runSpeed = 600.0f;
 	maxStamina = 100.0f;
 	currStamina = 100.0f;
-
-	// Combat
-	meleeDamage = 10.0f;
-	rangeDamage = 10.0f;
+	meleeDamage = 15.0f;
+	rangeDamage = 20.0f;
+	critChance = 0.2f;
 	critDamageMultiplier = 1.3f;
-	critChance = 0.5f;
-
-	// Health
-	maxHealth = 200.0f;
-	currHealth = 200.0f;
-	healingPerSecond = 10.0f;
-
+	maxHealth = 100.0f;
+	currHealth = 100.0f;
+	healsPerSecond = 5.0f;
+	invincible = false;
 
 	// Melee Weapon
 	MeleeWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Melee Weapon"));
@@ -90,6 +88,7 @@ void AMainPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &AMainPlayer::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &AMainPlayer::StopSprint);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMainPlayer::MeleeLightAttack);
+		//EnhancedInputComponent->BindAction(RangedAttackAction, ETriggerEvent::Started, this, &AMainPlayer::RangedAttack);
 	}
 }
 
@@ -118,7 +117,6 @@ void AMainPlayer::MoveAround(const FInputActionValue& Value)
 		AddMovementInput(direction, currVal.Y);
 	}
 }
-
 
 
 void AMainPlayer::LookAround(const FInputActionValue& Value)
@@ -190,7 +188,7 @@ void AMainPlayer::StopSprint(const FInputActionValue& Value)
 	}
 
 	// clearing reduce stamina timer if set, and set the increase stamina timer instead
-	GetCharacterMovement()->MaxWalkSpeed = normalSpeed;
+	GetCharacterMovement()->MaxWalkSpeed = runSpeed;
 	staminaManager(1);
 }
 
@@ -266,15 +264,6 @@ float AMainPlayer::GetStamina()
 
 
 // COMBAT SYSTEM
-AMainPlayer::DamageData* AMainPlayer::newDamageData(float value)
-{
-
-	DamageData* dmg = {};
-	dmg->value = value;
-	dmg->effectDuration = 0.0f;
-
-	return dmg;
-}
 
 bool AMainPlayer::isAttacking()
 {
@@ -298,25 +287,43 @@ void AMainPlayer::MeleeLightAttack()
 	}
 
 	if (isAttacking()) {
-		comboAttackIndex = 1;
+		attackComboTracker = 1;
 		return;
 	}
 
 	UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
 	if (pAnimInst != nullptr && MeleeLightAttackAnim != nullptr) {
+
+		damageInfo.value = meleeDamage;
+		damageInfo.blockable = true;
+		damageInfo.effectDuration = 0.0f;
+		damageInfo.interrupt = true;
+
+		// NOTE: important, needed Notifier Handler
+		OnGoingAnimation = MeleeLightAttackAnim;
+
+		// Play montage
 		pAnimInst->Montage_Play(MeleeLightAttackAnim);
 	}
 }
 
+
+//void AMainPlayer::RangedAttack()
+//{
+//	if (isDead()) {
+//		return;
+//	}
+//
+//	GetWorld()->SpawnActor(ProjectileActor, GetActorLocation(), GetActorRotation());
+//	return;
+//}
+
 void AMainPlayer::HandleOnMontageNotifyBegin(FName notifyName, const FBranchingPointNotifyPayload& branchingPayload)
 {
-	comboAttackIndex--;
+	attackComboTracker--;
 
-	if (comboAttackIndex < 0 || isDead()) {
-		UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
-		if (pAnimInst != nullptr && MeleeLightAttackAnim != nullptr) {
-			pAnimInst->Montage_Stop(0.4f, MeleeLightAttackAnim);
-		}
+	if (attackComboTracker < 0 || isDead()) {
+		interruptAction();
 	}
 	return;
 }
@@ -342,23 +349,22 @@ void AMainPlayer::MeeleWeaponCollisionDetector() {
 	if (hitResult.bBlockingHit) {
 		AActor* enemyact = hitResult.GetActor();
 		// change casting to generalised component/class
-		if (AMainPlayer* enemy = Cast<AMainPlayer>(enemyact)) {
+		if (IDamageable* enemy = Cast<IDamageable>(enemyact)) {
 			if (enemy != nullptr) {
-				if (GEngine) {
-					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("casting succeded!!")));
-				}
-				//DamageData* dmg = newDamageData(20.0f);
-				//enemy->ReceiveDamage(dmg);
-			}
-			else {
-				if (GEngine) {
-					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, FString::Printf(TEXT("casting failed!!")));
-				}
+				enemy->ReceiveDamage(damageInfo);
+				return;
 			}
 		}
 		enemyact->Destroy(); // TODO: remove, just for testing
 	}
 
+}
+	
+void AMainPlayer::interruptAction() {
+	UAnimInstance* pAnimInst = GetMesh()->GetAnimInstance();
+	if (pAnimInst != nullptr && OnGoingAnimation != nullptr) {
+		pAnimInst->Montage_Stop(0.4f, OnGoingAnimation);
+	}
 }
 
 float AMainPlayer::GetHealth()
@@ -371,10 +377,26 @@ float AMainPlayer::GetMaxHealth()
 	return maxHealth;
 }
 
-void AMainPlayer::ReceiveDamage(struct DamageData* dmg)
+bool AMainPlayer::ReceiveDamage(Damage dmg)
 {
-	currHealth -= dmg->value;
-	return;
+	if (dmg.blockable && isBlocking()) {
+		return false;
+	}
+
+	// deal actual damage
+	currHealth -= dmg.value;
+
+	if (dmg.interrupt && !isInvincible()) {
+		interruptAction();
+		// deal side effects
+	}
+
+	//if (effectDuration > 0.0f) {
+	//	// trigger onGoing effects
+	//	
+	//}
+
+	return true;
 }
 
 float AMainPlayer::Heal(float healAmount)
@@ -386,6 +408,16 @@ float AMainPlayer::Heal(float healAmount)
 		currHealth += healAmount;
 	}
 	return currHealth;
+}
+
+bool AMainPlayer::isInvincible()
+{
+	return invincible;
+}
+//TODO: implement this
+bool AMainPlayer::isBlocking()
+{
+	return false;
 }
 
 
